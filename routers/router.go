@@ -82,6 +82,7 @@ func InitMasterRouter() *gin.Engine {
 		静态资源
 	*/
 	r.Use(gzip.Gzip(gzip.DefaultCompression, gzip.WithExcludedPaths([]string{"/api/"})))
+	r.Use(middleware.InjectSiteInfo())
 	r.Use(static.Serve("/", bootstrap.StaticFS))
 	r.GET("manifest.json", controllers.Manifest)
 
@@ -445,6 +446,8 @@ func InitMasterRouter() *gin.Engine {
 				file.GET("upload/credential", controllers.GetUploadCredential)
 				// 更新文件
 				file.PUT("update/:id", controllers.PutContent)
+				// 创建空白文件
+				file.POST("create", controllers.CreateFile)
 				// 创建文件下载会话
 				file.PUT("download/:id", controllers.CreateDownloadSession)
 				// 预览文件
