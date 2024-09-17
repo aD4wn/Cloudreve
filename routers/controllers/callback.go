@@ -1,12 +1,14 @@
 package controllers
 
 import (
-	"github.com/HFO4/cloudreve/pkg/serializer"
-	"github.com/HFO4/cloudreve/pkg/util"
-	"github.com/HFO4/cloudreve/service/callback"
-	"github.com/gin-gonic/gin"
-	"net/url"
+	model "github.com/cloudreve/Cloudreve/v3/models"
+	"path"
 	"strconv"
+
+	"github.com/cloudreve/Cloudreve/v3/pkg/serializer"
+	"github.com/cloudreve/Cloudreve/v3/pkg/util"
+	"github.com/cloudreve/Cloudreve/v3/service/callback"
+	"github.com/gin-gonic/gin"
 )
 
 // RemoteCallback 远程上传回调
@@ -26,7 +28,7 @@ func QiniuCallback(c *gin.Context) {
 	if err := c.ShouldBindJSON(&callbackBody); err == nil {
 		res := callback.ProcessCallback(callbackBody, c)
 		if res.Code != 0 {
-			c.JSON(401, serializer.QiniuCallbackFailed{Error: res.Msg})
+			c.JSON(401, serializer.GeneralUploadCallbackFailed{Error: res.Msg})
 		} else {
 			c.JSON(200, res)
 		}
@@ -55,7 +57,7 @@ func UpyunCallback(c *gin.Context) {
 	if err := c.ShouldBind(&callbackBody); err == nil {
 		if callbackBody.Code != 200 {
 			util.Log().Debug(
-				"又拍云回调返回错误代码%d，信息：%s",
+				"Upload callback returned error code:%d, message: %s",
 				callbackBody.Code,
 				callbackBody.Message,
 			)
@@ -81,16 +83,35 @@ func OneDriveCallback(c *gin.Context) {
 
 // OneDriveOAuth OneDrive 授权回调
 func OneDriveOAuth(c *gin.Context) {
-	var callbackBody callback.OneDriveOauthService
+	var callbackBody callback.OauthService
 	if err := c.ShouldBindQuery(&callbackBody); err == nil {
-		res := callbackBody.Auth(c)
-		redirect, _ := url.Parse("/admin/policy")
+		res := callbackBody.OdAuth(c)
+		redirect := model.GetSiteURL()
+		redirect.Path = path.Join(redirect.Path, "/admin/policy")
 		queries := redirect.Query()
 		queries.Add("code", strconv.Itoa(res.Code))
 		queries.Add("msg", res.Msg)
 		queries.Add("err", res.Error)
 		redirect.RawQuery = queries.Encode()
-		c.Redirect(301, "/#"+redirect.String())
+		c.Redirect(303, redirect.String())
+	} else {
+		c.JSON(200, ErrorResponse(err))
+	}
+}
+
+// GoogleDriveOAuth Google Drive 授权回调
+func GoogleDriveOAuth(c *gin.Context) {
+	var callbackBody callback.OauthService
+	if err := c.ShouldBindQuery(&callbackBody); err == nil {
+		res := callbackBody.GDriveAuth(c)
+		redirect := model.GetSiteURL()
+		redirect.Path = path.Join(redirect.Path, "/admin/policy")
+		queries := redirect.Query()
+		queries.Add("code", strconv.Itoa(res.Code))
+		queries.Add("msg", res.Msg)
+		queries.Add("err", res.Error)
+		redirect.RawQuery = queries.Encode()
+		c.Redirect(303, redirect.String())
 	} else {
 		c.JSON(200, ErrorResponse(err))
 	}
@@ -99,6 +120,17 @@ func OneDriveOAuth(c *gin.Context) {
 // COSCallback COS上传完成客户端回调
 func COSCallback(c *gin.Context) {
 	var callbackBody callback.COSCallback
+	if err := c.ShouldBindQuery(&callbackBody); err == nil {
+		res := callbackBody.PreProcess(c)
+		c.JSON(200, res)
+	} else {
+		c.JSON(200, ErrorResponse(err))
+	}
+}
+
+// S3Callback S3上传完成客户端回调
+func S3Callback(c *gin.Context) {
+	var callbackBody callback.S3Callback
 	if err := c.ShouldBindQuery(&callbackBody); err == nil {
 		res := callbackBody.PreProcess(c)
 		c.JSON(200, res)

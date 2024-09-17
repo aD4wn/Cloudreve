@@ -3,10 +3,11 @@ package cache
 import (
 	"bytes"
 	"encoding/gob"
-	"github.com/HFO4/cloudreve/pkg/util"
-	"github.com/gomodule/redigo/redis"
 	"strconv"
 	"time"
+
+	"github.com/cloudreve/Cloudreve/v3/pkg/util"
+	"github.com/gomodule/redigo/redis"
 )
 
 // RedisStore redis存储驱动
@@ -43,7 +44,7 @@ func deserializer(value []byte) (interface{}, error) {
 }
 
 // NewRedisStore 创建新的redis存储
-func NewRedisStore(size int, network, address, password, database string) *RedisStore {
+func NewRedisStore(size int, network, address, user, password, database string) *RedisStore {
 	return &RedisStore{
 		pool: &redis.Pool{
 			MaxIdle:     size,
@@ -62,11 +63,11 @@ func NewRedisStore(size int, network, address, password, database string) *Redis
 					network,
 					address,
 					redis.DialDatabase(db),
+					redis.DialUsername(user),
 					redis.DialPassword(password),
 				)
 				if err != nil {
-					util.Log().Warning("无法创建Redis连接：%s", err)
-					return nil, err
+					util.Log().Panic("Failed to create Redis connection: %s", err)
 				}
 				return c, nil
 			},
@@ -213,4 +214,14 @@ func (store *RedisStore) DeleteAll() error {
 	_, err := rc.Do("FLUSHDB")
 
 	return err
+}
+
+// Persist Dummy implementation
+func (store *RedisStore) Persist(path string) error {
+	return nil
+}
+
+// Restore dummy implementation
+func (store *RedisStore) Restore(path string) error {
+	return nil
 }
